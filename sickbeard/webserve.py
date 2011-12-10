@@ -33,7 +33,7 @@ import sickbeard
 
 from sickbeard import config, sab
 from sickbeard import history, notifiers, processTV
-from sickbeard import tv, ui
+from sickbeard import ui
 from sickbeard import logger, helpers, exceptions, classes, db
 from sickbeard import encodingKludge as ek
 from sickbeard import search_queue
@@ -42,7 +42,7 @@ from sickbeard import naming
 
 from sickbeard.providers import newznab
 from sickbeard.common import Quality, Overview, statusStrings
-from sickbeard.common import SNATCHED, DOWNLOADED, SKIPPED, UNAIRED, IGNORED, ARCHIVED, WANTED
+from sickbeard.common import SNATCHED, SKIPPED, UNAIRED, IGNORED, ARCHIVED, WANTED
 from sickbeard.exceptions import ex
 
 from lib.tvdb_api import tvdb_api
@@ -846,6 +846,8 @@ class ConfigPostProcessing:
             multi = int(multi)
 
         result = naming.test_name(pattern, multi)
+
+        naming.reverse_name(pattern, multi)
         
         result = ek.ek(os.path.join, result['dir'], result['name']) 
 
@@ -1734,7 +1736,7 @@ class Home:
     def testSABnzbd(self, host=None, username=None, password=None, apikey=None):
         connection, accesMsg = sab.getSabAccesMethod(host, username, password, apikey)
         if connection:
-            authed, authMsg = sab.testAuthentication(host, username, password, apikey)
+            authed, authMsg = sab.testAuthentication(host, username, password, apikey) #@UnusedVariable
             if authed:
                 return "Success. Connected and authenticated"
             else:
@@ -2305,6 +2307,37 @@ class Home:
             return json.dumps({'result': 'success'})
         else:
             redirect("/home/displayShow?show=" + show)
+
+    @cherrypy.expose
+    def testRename(self, show=None):
+
+        if show == None:
+            errMsg = "You must specify a show"
+            return _genericMessage("Error", errMsg)
+
+        showObj = sickbeard.helpers.findCertainShow(sickbeard.showList, int(show))
+
+        if showObj == None:
+            errMsg = "Error", "Show not in show list"
+            return _genericMessage("Error", errMsg)
+
+        name_list = []
+
+        for cur_ep_obj in showObj.getAllEpisodes():
+            if not cur_ep_obj.location:
+                continue
+            
+            cur_path = cur_ep_obj.location[len(showObj.location)+1:]
+            cur_ext = cur_path.rsplit('.')[-1]
+            
+            name_list.append((cur_path, ek.ek(os.path.join, cur_ep_obj.formatted_dir(), cur_ep_obj.formatted_filename()) + '.' +cur_ext, cur_ep_obj))
+                
+        t = PageTemplate(file="testRename.tmpl")
+        t.submenu = [ { 'title': 'Edit', 'path': 'home/editShow?show=%d'%showObj.tvdbid } ]
+        t.name_list = name_list
+        t.show = showObj
+
+        return _munge(t)
 
     @cherrypy.expose
     def searchEpisode(self, show=None, season=None, episode=None):
