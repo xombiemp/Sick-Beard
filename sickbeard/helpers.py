@@ -396,7 +396,7 @@ def listMediaFiles(dir):
 def linkOrCopyFile(srcFile, destFile):
     try:
         ek.ek(os.link, srcFile, destFile)
-    except OSError:
+    except (OSError, AttributeError):
         # source and destination may be on different partitions or os.link is not supported
         if os.name == 'nt':
             linkOrCopyFileWin32(srcFile, destFile)
@@ -407,7 +407,7 @@ def linkOrCopyFileWin32(srcFile, destFile):
     import ctypes
     try:
         ek.ek(ctypes.windll.kernel32.CreateHardLinkW, destFile, srcFile, 0)
-    except OSError
+    except OSError:
         copyFile(srcFile, destFile)
 
 def copyFile(srcFile, destFile):
